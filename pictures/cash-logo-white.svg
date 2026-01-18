@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Cache heart logo">
+ <defs>
+  <style>
+   .stroke{fill:none;stroke:#fff;stroke-width:12;stroke-linecap:round;stroke-linejoin:round}
+   .fill{fill:#fff}
+  </style>
+ </defs>
+
+ <!-- Chip body -->
+ <rect x="56" y="56" width="144" height="120" rx="12" class="stroke"/>
+
+ <!-- Chip pins (top) -->
+ <line x1="80" y1="40" x2="80" y2="56" class="stroke"/>
+ <line x1="112" y1="40" x2="112" y2="56" class="stroke"/>
+ <line x1="144" y1="40" x2="144" y2="56" class="stroke"/>
+ <line x1="176" y1="40" x2="176" y2="56" class="stroke"/>
+
+ <!-- Chip pins (bottom) -->
+ <line x1="80" y1="176" x2="80" y2="200" class="stroke"/>
+ <line x1="112" y1="176" x2="112" y2="200" class="stroke"/>
+ <line x1="144" y1="176" x2="144" y2="200" class="stroke"/>
+ <line x1="176" y1="176" x2="176" y2="200" class="stroke"/>
+
+ <!-- Chip pins (left) -->
+ <line x1="40" y1="88" x2="56" y2="88" class="stroke"/>
+ <line x1="40" y1="120" x2="56" y2="120" class="stroke"/>
+ <line x1="40" y1="152" x2="56" y2="152" class="stroke"/>
+
+ <!-- Chip pins (right) -->
+ <line x1="200" y1="88" x2="216" y2="88" class="stroke"/>
+ <line x1="200" y1="120" x2="216" y2="120" class="stroke"/>
+ <line x1="200" y1="152" x2="216" y2="152" class="stroke"/>
+
+ <!-- Heart merged with chip (center) -->
+ <path class="stroke" d="M128 156c-18-13-46-33-46-56 0-14 10-26 24-26 10 0 17 6 22 14 5-8 12-14 22-14 14 0 24 12 24 26 0 23-28 43-46 56z"/>
+</svg>

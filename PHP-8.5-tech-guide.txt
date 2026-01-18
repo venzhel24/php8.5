@@ -1,0 +1,1591 @@
+PHP 8.5: ПОЛНОЕ ТЕХНИЧЕСКОЕ ОПИСАНИЕ
+=====================================
+
+ОГЛАВЛЕНИЕ:
+1. Введение и таймлайн
+2. Оператор Pipe (|>)
+3. Встроенное расширение URI
+4. Clone с изменением свойств
+5. Final Property Promotion
+6. Функции array_first() и array_last()
+7. Замыкания в константных выражениях
+8. Атрибут #[NoDiscard]
+9. Трассировка фатальных ошибок
+10. INI опция --diff
+11. Константа PHP_BUILD_DATE
+12. Функция curl_multi_get_handles()
+13. Улучшения Intl (IntlListFormatter, RTL, NumberFormatter)
+14. Функция grapheme_levenshtein()
+15. Атрибуты на константах
+16. Инспекция обработчиков ошибок
+17. Управление памятью (max_memory_limit)
+18. Deprecations и Breaking Changes
+19. Оптимизация производительности
+20. Миграция и инструменты
+
+
+1. ВВЕДЕНИЕ И ТАЙМЛАЙН
+======================
+
+PHP 8.5 был выпущен 20 ноября 2025 года и представляет собой значительное обновление языка PHP, сосредоточенное на удобстве разработчика, производительности и безопасности.
+
+Дата выпуска: 20 ноября 2025 года
+Активная поддержка: 31 декабря 2027 года
+Безопасность: 31 декабря 2029 года
+
+Цикл разработки:
+- Alpha 1: 3 июля 2025
+- Alpha 2: 17 июля 2025
+- Alpha 3: 31 июля 2025
+- Feature Freeze: 12 августа 2025
+- Beta 1: 14 августа 2025
+- Release Candidate: Сентябрь-октябрь 2025
+- Release: 20 ноября 2025
+
+
+2. ОПЕРАТОР PIPE (|>)
+====================
+
+ОПРЕДЕЛЕНИЕ:
+Оператор трубопровода (Pipe Operator) позволяет передавать результат левого выражения в качестве первого аргумента правого выражения. Это делает код более функциональным и читаемым при работе с цепочками операций.
+
+СИНТАКСИС:
+expression1 |> expression2
+
+ТЕОРЕТИЧЕСКОЕ ОСНОВАНИЕ:
+Оператор pipe реализует принцип функциональной композиции - паттерн, заимствованный из языков Elixir, Hack, Ruby и функциональных языков программирования (Haskell, Lisp). Результат левого выражения становится первым аргументом правого.
+
+ПРИМЕРЫ:
+
+Пример 1 - Базовое использование:
+// Старый стиль (вложение функций)
+$result = number_format(round(sqrt(16)), 2);
+
+// Новый стиль с pipe operator
+$result = 16 
+  |> sqrt()
+  |> round()
+  |> number_format();
+
+Пример 2 - С методами:
+class StringProcessor {
+  public function trim() {}
+  public function uppercase() {}
+  public function replace($from, $to) {}
+}
+
+// С pipe operator
+$processor = new StringProcessor();
+$result = "  hello world  "
+  |> $processor->trim()
+  |> $processor->uppercase()
+  |> $processor->replace('WORLD', 'PHP');
+
+Пример 3 - С методами объектов (первый аргумент):
+$files = ['file1.txt', 'file2.txt'];
+$result = $files
+  |> array_map(fn($f) => fopen($f, 'r'))
+  |> array_filter(fn($h) => $h !== false)
+  |> count();
+
+ОСОБЕННОСТИ:
+- Результат левого выражения передаётся как первый аргумент правого
+- Работает с функциями, методами и замыканиями
+- Позволяет избежать нескольких переменных-посредников
+- Улучшает читаемость кода
+
+
+3. ВСТРОЕННОЕ РАСШИРЕНИЕ URI
+=============================
+
+ОПРЕДЕЛЕНИЕ:
+Новое встроенное расширение для парсинга, валидации и нормализации URI в соответствии с RFC 3986 (URL Generic Syntax) и WHATWG URL Standard.
+
+НАЗНАЧЕНИЕ:
+Предоставляет стандартизированный способ работы с URL, заменяя ненадежные самописные парсеры и функции вроде parse_url().
+
+ОСНОВНЫЕ КОМПОНЕНТЫ:
+
+1. Uri\UriInterface - базовый интерфейс для работы с URI
+
+2. Uri\Scheme - работа с схемой (http, https, ftp и т.д.)
+   - Валидация схемы
+   - Нормализация
+
+3. Uri\Authority - компонент авторитета (userinfo@host:port)
+   - Host компонент
+   - Port компонент
+   - Userinfo компонент
+
+4. Uri\Path - компонент пути
+   - Разделение сегментов
+   - Нормализация (удаление . и ..)
+   - URL кодирование
+
+5. Uri\Query - компонент запроса
+   - Парсинг параметров
+   - Кодирование
+
+6. Uri\Fragment - компонент фрагмента
+
+ОСНОВНЫЕ ФУНКЦИИ:
+
+Uri\parse_url(string $url): Uri\Components
+- Парсит URL и возвращает объект с компонентами
+
+Uri\normalize_url(string $url): string
+- Нормализует URL (удаляет точки в пути, приводит в порядок параметры)
+
+Uri\resolve_relative_url(string $base, string $relative): string
+- Разрешает относительный URL относительно базовой ссылки
+
+ПРИМЕРЫ:
+
+Пример 1 - Базовый парсинг:
+$uri = Uri\parse_url('https://user:pass@example.com:8080/path?key=value#fragment');
+
+echo $uri->scheme();      // "https"
+echo $uri->user();        // "user"
+echo $uri->password();    // "pass"
+echo $uri->host();        // "example.com"
+echo $uri->port();        // 8080
+echo $uri->path();        // "/path"
+echo $uri->query();       // "key=value"
+echo $uri->fragment();    // "fragment"
+
+Пример 2 - Нормализация URL:
+$url = 'https://example.com:443/path/./to//..//resource';
+$normalized = Uri\normalize_url($url);
+// Результат: 'https://example.com/path/to/resource'
+
+Пример 3 - Разрешение относительного URL:
+$base = 'https://example.com/docs/guide/';
+$relative = '../api/reference.html';
+$resolved = Uri\resolve_relative_url($base, $relative);
+// Результат: 'https://example.com/docs/api/reference.html'
+
+ПРЕИМУЩЕСТВА:
+- RFC 3986 compliant парсинг
+- Встроено в язык, не требует отдельной установки
+- Безопасная валидация
+- Нормализация URL для сравнения
+
+
+4. CLONE С ИЗМЕНЕНИЕМ СВОЙСТВ
+==============================
+
+ОПРЕДЕЛЕНИЕ:
+Новый синтаксис для создания модифицированной копии объекта при клонировании с использованием ключевого слова `with`.
+
+НАЗНАЧЕНИЕ:
+Создание неизменяемых (immutable) моделей данных с чистым и выразительным синтаксисом.
+
+СИНТАКСИС:
+$newObject = clone $object with {
+  $property => $value,
+  $anotherProperty => $anotherValue
+};
+
+ТЕОРЕТИЧЕСКОЕ ОСНОВАНИЕ:
+Паттерн "copy-on-write" для создания неизменяемых объектов. Вместо создания полностью нового объекта, создаётся копия с выбранными изменениями. Это улучшает производительность и упрощает работу с неизменяемыми структурами данных.
+
+ПРИМЕРЫ:
+
+Пример 1 - Базовое использование:
+class User {
+  public string $name;
+  public string $email;
+  public int $age;
+  
+  public function __construct(string $name, string $email, int $age) {
+    $this->name = $name;
+    $this->email = $email;
+    $this->age = $age;
+  }
+}
+
+$user1 = new User('John', 'john@example.com', 30);
+$user2 = clone $user1 with {
+  $age => 31
+};
+
+echo $user1->age; // 30
+echo $user2->age; // 31
+
+Пример 2 - Множественные изменения:
+$date1 = new DateTime('2025-01-19 12:30:45');
+$date2 = clone $date1 with {
+  $day => 20,
+  $month => 2
+};
+
+Пример 3 - С расчётными свойствами:
+class Product {
+  public float $price;
+  public float $discount = 0;
+  
+  public function getDiscountedPrice(): float {
+    return $this->price * (1 - $this->discount);
+  }
+}
+
+$product1 = new Product(100, 0);
+$product2 = clone $product1 with {
+  $discount => 0.2  // 20% скидка
+};
+
+echo $product1->getDiscountedPrice(); // 100
+echo $product2->getDiscountedPrice(); // 80
+
+ОСОБЕННОСТИ:
+- Работает с публичными свойствами
+- Вызывает __clone() магический метод после клонирования
+- Не требует создания специального конструктора
+- Оптимизирует производительность за счёт структурного общения памяти
+
+
+5. FINAL PROPERTY PROMOTION
+===========================
+
+ОПРЕДЕЛЕНИЕ:
+Модификатор `final` для property promotion - запрет переопределения свойств в подклассах.
+
+НАЗНАЧЕНИЕ:
+Гарантирование инвариантности свойств в иерархии наследования и создание более строгих контрактов API.
+
+СИНТАКСИС:
+public function __construct(
+  public final string $propertyName
+) {}
+
+ТЕОРЕТИЧЕСКОЕ ОСНОВАНИЕ:
+Принцип Liskov Substitution Principle (LSP) требует, чтобы подклассы сохраняли контракт родительского класса. Final свойства гарантируют, что подклассы не смогут изменить поведение этих свойств.
+
+ПРИМЕРЫ:
+
+Пример 1 - Базовое использование:
+class Entity {
+  public function __construct(
+    public final string $id,
+    public final DateTime $createdAt
+  ) {}
+}
+
+class User extends Entity {
+  // Ошибка: не может переопределить final свойства
+  // public string $id;  // Error!
+  
+  public string $name = '';
+}
+
+Пример 2 - С типами:
+class DatabaseConnection {
+  public function __construct(
+    public final string $host,
+    public final int $port = 5432,
+    public final string $database
+  ) {}
+}
+
+class PostgresConnection extends DatabaseConnection {
+  public string $charset = 'UTF-8';
+}
+
+Пример 3 - Комбинирование:
+class Configuration {
+  public function __construct(
+    public final string $environment,
+    public final array $credentials,
+    public string $debug = 'false'  // Не final, может быть переопределено
+  ) {}
+}
+
+ОСОБЕННОСТИ:
+- Применяется к property promotion в конструкторе
+- Эквивалент private(set) для строгого контроля
+- Помогает предотвратить баги в иерархиях наследования
+
+
+6. ФУНКЦИИ array_first() И array_last()
+========================================
+
+ОПРЕДЕЛЕНИЕ:
+Новые встроенные функции для получения первого и последнего элемента массива с опциональным фильтром.
+
+НАЗНАЧЕНИЕ:
+Упрощение работы с массивами, замена набора функций reset(), end(), array_values()[0] и т.д.
+
+СИГНАТУРА:
+
+function array_first(
+  array $array,
+  ?callable $callback = null,
+  mixed $default = null
+): mixed
+
+function array_last(
+  array $array,
+  ?callable $callback = null,
+  mixed $default = null
+): mixed
+
+ПАРАМЕТРЫ:
+- $array: Входной массив
+- $callback: Опциональная функция-фильтр (получает значение, ключ, массив)
+- $default: Значение, возвращаемое если элемент не найден
+
+ВОЗВРАЩАЕМОЕ ЗНАЧЕНИЕ:
+- Значение первого/последнего элемента (или первого/последнего элемента, удовлетворяющего условию)
+- $default если ничего не найдено
+
+ПРИМЕРЫ:
+
+Пример 1 - Базовое использование:
+$numbers = [1, 2, 3, 4, 5];
+
+$first = array_first($numbers);        // 1
+$last = array_last($numbers);          // 5
+$first_def = array_first([], null, 0); // 0 (default)
+
+Пример 2 - С фильтром (callback):
+$numbers = [1, 2, 3, 4, 5, 6];
+
+$first_even = array_first($numbers, fn($n) => $n % 2 === 0);  // 2
+$last_even = array_last($numbers, fn($n) => $n % 2 === 0);    // 6
+
+Пример 3 - С ассоциативными массивами:
+$users = [
+  'alice' => ['name' => 'Alice', 'age' => 25],
+  'bob' => ['name' => 'Bob', 'age' => 30],
+  'charlie' => ['name' => 'Charlie', 'age' => 35]
+];
+
+$first_user = array_first($users);     // ['name' => 'Alice', 'age' => 25]
+$last_adult = array_last(
+  $users,
+  fn($user) => $user['age'] > 30       // ['name' => 'Charlie', 'age' => 35]
+);
+
+Пример 4 - С default значением:
+$result = array_first(
+  [],
+  fn($x) => $x > 0,
+  null
+);
+// null - элемент не найден
+
+СРАВНЕНИЕ СО СТАРЫМИ МЕТОДАМИ:
+
+Старый способ (PHP ≤ 8.4):
+$first = reset($array) ?: null;
+$last = end($array) ?: null;
+$first_filtered = array_values(array_filter($array, $callback))[0] ?? null;
+
+Новый способ (PHP 8.5):
+$first = array_first($array);
+$last = array_last($array);
+$first_filtered = array_first($array, $callback);
+
+ОСОБЕННОСТИ:
+- Упрощает код и повышает читаемость
+- Работает с любыми типами массивов
+- Возвращает null если элемент не найден (если не указан default)
+
+
+7. ЗАМЫКАНИЯ В КОНСТАНТНЫХ ВЫРАЖЕНИЯХ
+=====================================
+
+ОПРЕДЕЛЕНИЕ:
+Теперь статические замыкания и callable-объекты первого класса можно использовать в константных выражениях и в параметрах атрибутов.
+
+НАЗНАЧЕНИЕ:
+Расширение возможностей атрибутов и константных выражений для более гибкой конфигурации.
+
+ТЕОРЕТИЧЕСКОЕ ОСНОВАНИЕ:
+Константные выражения (constant expressions) - это выражения, которые можно вычислить во время компиляции. Добавление поддержки замыканий позволяет использовать более сложную логику в атрибутах и константах класса.
+
+ПРИМЕРЫ:
+
+Пример 1 - Замыкание в атрибуте:
+#[Attribute]
+class Validate {
+  public function __construct(
+    public readonly callable $validator
+  ) {}
+}
+
+#[Validate(
+  static fn($value): bool => strlen($value) > 3
+)]
+class User {
+  public string $name;
+}
+
+Пример 2 - First-class callable в атрибуте:
+class Service {
+  public function validate(string $data): bool {
+    return strlen($data) > 0;
+  }
+}
+
+#[Validate(Service::validate(...)]
+class DataValidator {}
+
+Пример 3 - Комплексная логика:
+#[Cache(
+  static fn(Request $req): string => 
+    md5(serialize($req->getParams()))
+)]
+class CachedHandler {
+  // ...
+}
+
+Пример 4 - Условная логика:
+#[SkipDiscovery(
+  static function (Container $container): bool {
+    return ! $container->get(Application::class) 
+      instanceof ConsoleApplication;
+  }
+)]
+final class BlogPostEventHandlers {
+  // ...
+}
+
+ПРИМЕНЕНИЕ:
+- Фреймворки для более гибкой конфигурации
+- Dependency Injection системы
+- Валидация данных
+- Условное выполнение кода на основе runtime конфигурации
+
+ОСОБЕННОСТИ:
+- Замыкания должны быть static (без привязки к $this)
+- First-class callables превращаются в замыкания
+- Позволяет избежать конфигурационных классов
+
+
+8. АТРИБУТ #[NoDiscard]
+=======================
+
+ОПРЕДЕЛЕНИЕ:
+Новый встроенный атрибут для обозначения функций и методов, возвращаемые значения которых не должны игнорироваться.
+
+НАЗНАЧЕНИЕ:
+Предотвращение ошибок, связанных с игнорированием важных возвращаемых значений.
+
+СИНТАКСИС:
+#[NoDiscard]
+function important_function(): int {
+  return 42;
+}
+
+#[NoDiscard('Use the returned value for error handling')]
+public function delete(): bool {
+  // ...
+}
+
+ТЕОРЕТИЧЕСКОЕ ОСНОВАНИЕ:
+Атрибут #[NoDiscard] работает с статическими анализаторами кода (PHPStan, Psalm) для предупреждения о потенциально опасном игнорировании возвращаемого значения.
+
+ПРИМЕРЫ:
+
+Пример 1 - Базовое использование:
+#[NoDiscard]
+function validateData(array $data): bool {
+  // Валидация...
+  return true;
+}
+
+// Работает:
+$isValid = validateData($data);
+
+// Предупреждение от анализатора:
+validateData($data);  // Warning: Return value is marked NoDiscard
+
+Пример 2 - С сообщением:
+#[NoDiscard('Result must be checked for success')]
+public function processPayment(float $amount): PaymentResult {
+  // ...
+}
+
+Пример 3 - На методе:
+class UserRepository {
+  #[NoDiscard('Always check if user was created successfully')]
+  public function create(string $name, string $email): User|false {
+    // ...
+  }
+}
+
+Пример 4 - На функции из расширения:
+#[NoDiscard('Ignoring return value may cause security issues')]
+function hash_password(string $password): string {
+  return password_hash($password, PASSWORD_BCRYPT);
+}
+
+ИНТЕГРАЦИЯ С АНАЛИЗАТОРАМИ:
+Статические анализаторы поддерживают #[NoDiscard]:
+- PHPStan 1.9+
+- Psalm 5.0+
+- Rector может автоматизировать добавление атрибута
+
+ОСОБЕННОСТИ:
+- Опциональное сообщение об ошибке
+- Работает со статическими анализаторами
+- Не влияет на runtime поведение
+- Улучшает код качество
+
+
+9. ТРАССИРОВКА ФАТАЛЬНЫХ ОШИБОК
+================================
+
+ОПРЕДЕЛЕНИЕ:
+Фатальные ошибки теперь включают полную трассировку стека (backtrace) вместо только точки, где произошла ошибка.
+
+НАЗНАЧЕНИЕ:
+Значительно облегчить диагностику и отладку ошибок в продакшене, предоставляя полный контекст.
+
+ТАЙМЛАЙН ВНЕДРЕНИЯ:
+Ранее: Фатальная ошибка выводилась как "Fatal error: ... in /path/file.php on line 123"
+Теперь: Фатальная ошибка выводится со всем стеком вызовов
+
+ПРИМЕРЫ:
+
+Пример 1 - Типичный вывод фатальной ошибки:
+Fatal error: Uncaught TypeError: function_name() expects parameter 1 
+to be string, int given in /app/services/UserService.php:45
+Stack trace:
+#0 /app/controllers/UserController.php(120): UserService->handleUser(123)
+#1 /app/middleware/AuthMiddleware.php(67): UserController->show()
+#2 /public/index.php(35): AuthMiddleware->process()
+#3 {main}
+
+Пример 2 - Глубокая вложенность:
+Fatal error: Division by zero in /app/math/Calculator.php:15
+Stack trace:
+#0 /app/services/DataProcessor.php(82): Calculator->divide(10, 0)
+#1 /app/services/ReportGenerator.php(134): DataProcessor->compute(array)
+#2 /app/api/ReportController.php(45): ReportGenerator->generate()
+#3 /public/index.php(50): ReportController->handle()
+#4 {main}
+
+АНАЛИЗ BACKTRACE:
+- #0: Функция/метод, где произошла ошибка
+- #1: Вызывающая функция
+- ...
+- N: Главный скрипт (index.php или точка входа)
+- {main}: Конец стека
+
+ПРЕИМУЩЕСТВА:
+- Быстрая локализация проблемы
+- Понимание последовательности вызовов
+- Помощь в воспроизведении ошибки
+- Меньше времени на отладку в продакшене
+
+ПРИМЕРЫ В ЛОГАХ:
+Структурированный лог в системе мониторинга:
+{
+  "type": "fatal_error",
+  "message": "Call to undefined method User::getName()",
+  "file": "/app/entities/User.php",
+  "line": 45,
+  "backtrace": [
+    {"function": "getName", "class": "User", "file": "User.php", "line": 45},
+    {"function": "render", "class": "UserView", "file": "UserView.php", "line": 120},
+    {"function": "show", "class": "UserController", "file": "UserController.php", "line": 67}
+  ]
+}
+
+
+10. INI ОПЦИЯ --diff
+====================
+
+ОПРЕДЕЛЕНИЕ:
+Новая CLI опция `php --ini=diff` выводит только те настройки INI, которые отличаются от встроенных значений PHP по умолчанию.
+
+НАЗНАЧЕНИЕ:
+Быстрая диагностика конфигурации на разных серверах и окружениях.
+
+СИНТАКСИС:
+php --ini=diff
+
+ВЫВОД:
+Non-default INI settings:
+html_errors: "1" (default) -> "0" (current)
+implicit_flush: "0" (default) -> "1" (current)
+max_execution_time: "30" (default) -> "0" (current)
+memory_limit: "128M" (default) -> "512M" (current)
+
+ПРИМЕРЫ:
+
+Пример 1 - Диагностика на production сервере:
+$ php --ini=diff
+Non-default INI settings:
+display_errors: "1" -> "0"
+log_errors: "0" -> "1"
+error_log: "" -> "/var/log/php-errors.log"
+memory_limit: "128M" -> "512M"
+max_execution_time: "30" -> "300"
+
+Пример 2 - Сравнение между серверами:
+Development:
+$ php --ini=diff
+xdebug.mode: (not set) -> "debug"
+memory_limit: "128M" -> "1G"
+
+Production:
+$ php --ini=diff
+memory_limit: "128M" -> "512M"
+display_errors: "1" -> "0"
+
+ПРИМЕНЕНИЕ:
+1. Проверка конфигурации после деплоя
+2. Отладка проблем, связанных с настройками
+3. Автоматизация проверки окружений
+4. CI/CD пайплайны
+
+АЛЬТЕРНАТИВА:
+php --ini  - выводит все INI параметры (громадный список)
+php -i     - вся информация о PHP (очень длинно)
+
+ОСОБЕННОСТИ:
+- Выводит только изменённые значения
+- Показывает default и current значения
+- Очень удобно для быстрой диагностики
+- Работает на всех ОС
+
+
+11. КОНСТАНТА PHP_BUILD_DATE
+=============================
+
+ОПРЕДЕЛЕНИЕ:
+Новая встроенная константа, содержащая дату и время сборки PHP бинарника.
+
+НАЗНАЧЕНИЕ:
+Отслеживание версий и развёртывания артефактов, особенно при использовании нескольких PHP версий.
+
+ФОРМАТ:
+ISO 8601 формат: YYYY-MM-DD HH:MM:SS
+
+ПРИМЕРЫ:
+
+Пример 1 - Базовое использование:
+echo PHP_BUILD_DATE;
+// Вывод: 2025-11-20 14:30:45
+
+Пример 2 - Проверка версии при деплое:
+const REQUIRED_BUILD_DATE = '2025-11-20';
+
+if (substr(PHP_BUILD_DATE, 0, 10) < REQUIRED_BUILD_DATE) {
+  die('PHP version is too old');
+}
+
+Пример 3 - Логирование информации:
+error_log(sprintf(
+  'PHP Environment: Version %s built at %s, running on %s',
+  PHP_VERSION,
+  PHP_BUILD_DATE,
+  PHP_OS
+));
+
+Пример 4 - В информационном эндпоинте:
+echo json_encode([
+  'php_version' => PHP_VERSION,
+  'php_build_date' => PHP_BUILD_DATE,
+  'server' => php_uname(),
+  'sapi' => php_sapi_name()
+]);
+
+ПРИМЕНЕНИЕ:
+- Health check endpoints
+- Deployment verification
+- Docker контейнеры
+- CI/CD пайплайны
+- Мониторинг окружений
+
+СВЯЗАННЫЕ КОНСТАНТЫ:
+- PHP_VERSION - версия PHP ("8.5.0")
+- PHP_RELEASE_VERSION - релиз версия ("8.5.0")
+- PHP_OS - операционная система
+- PHP_OS_FAMILY - семейство ОС (Windows, Linux, Darwin)
+- PHP_SAPI_NAME - тип SAPI (cli, fpm, apache и т.д.)
+
+ОСОБЕННОСТИ:
+- Константа, доступна в compile-time
+- Используется для сравнения версий
+- Помогает при управлении нескольких PHP бинарников
+
+
+12. ФУНКЦИЯ curl_multi_get_handles()
+====================================
+
+ОПРЕДЕЛЕНИЕ:
+Новая функция для получения списка всех дескрипторов из мульти-сессии cURL.
+
+НАЗНАЧЕНИЕ:
+Удобный доступ ко всем активным cURL-запросам для инспекции и управления.
+
+СИГНАТУРА:
+array curl_multi_get_handles(CurlMultiHandle $handle): array
+
+ПАРАМЕТРЫ:
+- $handle: Дескриптор мульти-сессии (из curl_multi_init())
+
+ВОЗВРАЩАЕМОЕ ЗНАЧЕНИЕ:
+Массив CurlHandle объектов, которые были добавлены в мульти-сессию
+
+ПРИМЕРЫ:
+
+Пример 1 - Базовое использование:
+$multi = curl_multi_init();
+
+$handles = [];
+$urls = ['https://api.example.com/1', 'https://api.example.com/2'];
+
+foreach ($urls as $url) {
+  $ch = curl_init($url);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+  curl_multi_add_handle($multi, $ch);
+  $handles[] = $ch;
+}
+
+// Получить все дескрипторы
+$all_handles = curl_multi_get_handles($multi);
+echo "Всего запросов: " . count($all_handles);
+
+Пример 2 - Инспекция статуса:
+$multi = curl_multi_init();
+// ... добавить запросы ...
+
+$handles = curl_multi_get_handles($multi);
+foreach ($handles as $handle) {
+  $info = curl_getinfo($handle);
+  echo "URL: " . $info['url'] . "\n";
+  echo "HTTP Code: " . $info['http_code'] . "\n";
+}
+
+Пример 3 - Отмена определённого запроса:
+$multi = curl_multi_init();
+// ... добавить запросы ...
+
+$handles = curl_multi_get_handles($multi);
+// Отменить первый запрос
+if (!empty($handles)) {
+  curl_multi_remove_handle($multi, $handles[0]);
+  curl_close($handles[0]);
+}
+
+Пример 4 - Массовые API запросы (доставка):
+class BulkDeliveryRequest {
+  private $multi;
+  private $handles;
+  
+  public function __construct() {
+    $this->multi = curl_multi_init();
+  }
+  
+  public function addShipment(string $id, array $data): void {
+    $ch = curl_init('https://delivery-api.com/shipments');
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+    curl_multi_add_handle($this->multi, $ch);
+  }
+  
+  public function getStatus(): array {
+    $result = [];
+    $handles = curl_multi_get_handles($this->multi);
+    
+    foreach ($handles as $handle) {
+      $info = curl_getinfo($handle);
+      $result[] = [
+        'url' => $info['url'],
+        'status' => $info['http_code'],
+        'total_time' => $info['total_time']
+      ];
+    }
+    
+    return $result;
+  }
+}
+
+ИСПОЛЬЗОВАНИЕ СЛУЧАИ:
+- Массовые API запросы
+- Скачивание нескольких файлов параллельно
+- Инспекция и отладка мульти-запросов
+- Балансировка нагрузки
+- Обработка платежей/доставки
+
+ОСОБЕННОСТИ:
+- Возвращает именно те дескрипторы, которые были добавлены
+- Не включает удалённые дескрипторы
+- Работает после curl_multi_add_handle()
+
+
+13. УЛУЧШЕНИЯ INTL (INTERNATIONALIZATION)
+==========================================
+
+ОПРЕДЕЛЕНИЕ:
+Расширение Intl получило новые инструменты для работы с интернационализацией.
+
+НОВЫЕ КОМПОНЕНТЫ:
+
+1. IntlListFormatter
+НАЗНАЧЕНИЕ: Форматирование списков в соответствии с локалью.
+
+ПРИМЕРЫ:
+$formatter = new IntlListFormatter('en_US');
+echo $formatter->format(['apple', 'orange', 'banana']);
+// apple, orange, and banana
+
+$formatter = new IntlListFormatter('fr_FR');
+echo $formatter->format(['apple', 'orange', 'banana']);
+// pomme, orange et banane
+
+$formatter = new IntlListFormatter('de_DE', IntlListFormatter::TYPE_OR);
+echo $formatter->format(['Apfel', 'Orange', 'Banane']);
+// Apfel, Orange oder Banane
+
+2. IntlRTL - Проверка направления письма
+НАЗНАЧЕНИЕ: Определение, является ли локаль RTL (справа налево).
+
+ПРИМЕРЫ:
+IntlChar::isRTL('ar');     // true (Arabic)
+IntlChar::isRTL('en');     // false (English)
+IntlChar::isRTL('he');     // true (Hebrew)
+IntlChar::isRTL('ja');     // false (Japanese)
+
+if (IntlChar::isRTL($locale)) {
+  $direction = 'rtl';
+} else {
+  $direction = 'ltr';
+}
+
+3. NumberFormatter улучшения
+НАЗНАЧЕНИЕ: Лучшая поддержка форматирования чисел по локали.
+
+ПРИМЕРЫ:
+$formatter = new NumberFormatter('de_DE', NumberFormatter::CURRENCY);
+echo $formatter->formatCurrency(1234.56, 'EUR');
+// 1.234,56 €
+
+$formatter = new NumberFormatter('en_IN', NumberFormatter::DECIMAL);
+echo $formatter->format(1234567.89);
+// 12,34,567.89 (Indian number format)
+
+ПРИМЕНЕНИЕ:
+$formatter = new NumberFormatter('ru_RU', NumberFormatter::DECIMAL);
+$formatter->setAttribute(NumberFormatter::MAX_FRACTION_DIGITS, 2);
+echo $formatter->format(1234567.8956);
+// 1 234 567,90 (Russian format)
+
+ПОЛНЫЕ ПРИМЕРЫ:
+
+Пример 1 - Многоязычный интерфейс:
+class LocalizedFormatter {
+  private $locale;
+  
+  public function __construct(string $locale) {
+    $this->locale = $locale;
+  }
+  
+  public function formatList(array $items, string $type = 'and'): string {
+    $formatter = new IntlListFormatter(
+      $this->locale,
+      $type === 'or' ? IntlListFormatter::TYPE_OR : IntlListFormatter::TYPE_AND
+    );
+    return $formatter->format($items);
+  }
+  
+  public function formatCurrency(float $amount, string $currency): string {
+    $formatter = new NumberFormatter($this->locale, NumberFormatter::CURRENCY);
+    return $formatter->formatCurrency($amount, $currency);
+  }
+  
+  public function formatDate(DateTime $date): string {
+    $formatter = new IntlDateFormatter(
+      $this->locale,
+      IntlDateFormatter::LONG,
+      IntlDateFormatter::NONE
+    );
+    return $formatter->format($date);
+  }
+}
+
+// Использование:
+$en = new LocalizedFormatter('en_US');
+$ru = new LocalizedFormatter('ru_RU');
+
+echo $en->formatList(['apple', 'orange', 'banana']); // apple, orange, and banana
+echo $ru->formatList(['яблоко', 'апельсин', 'банан']); // яблоко, апельсин и банан
+
+Пример 2 - RTL поддержка в веб-приложении:
+class LayoutManager {
+  public function getDirection(string $locale): string {
+    return IntlChar::isRTL($locale) ? 'rtl' : 'ltr';
+  }
+  
+  public function getTextAlign(string $locale): string {
+    return IntlChar::isRTL($locale) ? 'right' : 'left';
+  }
+}
+
+// В HTML шаблоне:
+<?php $dir = $layoutManager->getDirection($locale); ?>
+<html dir="<?= $dir ?>">
+
+ОСОБЕННОСТИ:
+- IntlListFormatter создан для уважения локальных правил
+- RTL/LTR автоматически определяется
+- NumberFormatter учитывает разделители по локали
+
+
+14. ФУНКЦИЯ grapheme_levenshtein()
+=================================
+
+ОПРЕДЕЛЕНИЕ:
+Новая функция для расчёта расстояния Левенштейна (Levenshtein distance) с учётом графем (символов Unicode).
+
+НАЗНАЧЕНИЕ:
+Работа с многобайтовыми символами и Unicode при вычислении расстояния между строками.
+
+ТЕОРИЯ:
+Расстояние Левенштейна - это минимальное количество операций редактирования (вставка, удаление, замена символа) для преобразования одной строки в другую.
+
+СИГНАТУРА:
+int grapheme_levenshtein(string $str1, string $str2, int $ins_cost = 1, int $del_cost = 1, int $sub_cost = 1): int
+
+ПАРАМЕТРЫ:
+- $str1: Первая строка
+- $str2: Вторая строка
+- $ins_cost: Стоимость операции вставки (по умолчанию 1)
+- $del_cost: Стоимость операции удаления (по умолчанию 1)
+- $sub_cost: Стоимость операции замены (по умолчанию 1)
+
+ПРИМЕРЫ:
+
+Пример 1 - Базовое использование:
+$str1 = "привет";
+$str2 = "прибыт";
+$distance = grapheme_levenshtein($str1, $str2);
+echo $distance; // 2 (замена 'е' на 'ы', замена 'е' на 'ы')
+
+Пример 2 - С эмодзи:
+$str1 = "Hello 👨👩👧👦";
+$str2 = "Hello 👨👩👧";
+$distance = grapheme_levenshtein($str1, $str2);
+echo $distance; // 1 (удалена одна графема)
+
+Пример 3 - Поиск похожего слова:
+function findClosestMatch(string $query, array $dictionary): ?string {
+  $minDistance = PHP_INT_MAX;
+  $closest = null;
+  
+  foreach ($dictionary as $word) {
+    $distance = grapheme_levenshtein($query, $word);
+    if ($distance < $minDistance) {
+      $minDistance = $distance;
+      $closest = $word;
+    }
+  }
+  
+  // Вернуть только если расстояние разумное (например, < 3)
+  return $minDistance < 3 ? $closest : null;
+}
+
+$typo = "fillosophi";
+$result = findClosestMatch($typo, ['philosophy', 'fillmore', 'philately']);
+// Возвращает: "philosophy"
+
+Пример 4 - Проверка опечаток:
+class SpellChecker {
+  private $dictionary;
+  private $threshold = 2; // Максимальное расстояние
+  
+  public function checkWord(string $word): array {
+    $suggestions = [];
+    
+    foreach ($this->dictionary as $correct) {
+      $distance = grapheme_levenshtein($word, $correct);
+      
+      if ($distance <= $this->threshold && $distance > 0) {
+        $suggestions[$distance] = $correct;
+      }
+    }
+    
+    ksort($suggestions);
+    return array_values($suggestions);
+  }
+}
+
+СРАВНЕНИЕ С levenshtein():
+levenshtein() - работает с байтами, не учитывает многобайтовые символы
+grapheme_levenshtein() - работает с графемами, правильно обрабатывает Unicode
+
+ПРИМЕРЫ РАЗНИЦЫ:
+// С обычным levenshtein():
+$dist1 = levenshtein("привет", "прибыт");  // 6 (неправильно - считает байты)
+
+// С grapheme_levenshtein():
+$dist2 = grapheme_levenshtein("привет", "прибыт");  // 2 (правильно)
+
+ПРИМЕНЕНИЕ:
+- Поиск по опечаткам
+- Рекомендации и автодополнение
+- Дедупликация данных
+- Проверка орфографии
+
+
+15. АТРИБУТЫ НА КОНСТАНТАХ
+===========================
+
+ОПРЕДЕЛЕНИЕ:
+Теперь атрибуты можно применять к константам класса и глобальным константам через #[Attribute].
+
+НАЗНАЧЕНИЕ:
+Добавление метаданных к константам для использования с рефлексией и обработчиками атрибутов.
+
+СИНТАКСИС:
+#[AttributeName]
+const CONSTANT_NAME = value;
+
+ПРИМЕРЫ:
+
+Пример 1 - Базовое использование:
+#[Deprecated('Use NEW_VERSION instead')]
+const OLD_VERSION = '1.0';
+
+const NEW_VERSION = '2.0';
+
+Пример 2 - Кастомный атрибут на константе:
+#[Attribute]
+class ApiEndpoint {
+  public function __construct(
+    public string $path,
+    public string $method = 'GET'
+  ) {}
+}
+
+class UserApi {
+  #[ApiEndpoint('/users', 'GET')]
+  const LIST_USERS = 'users.list';
+  
+  #[ApiEndpoint('/users/{id}', 'GET')]
+  const GET_USER = 'users.get';
+  
+  #[ApiEndpoint('/users', 'POST')]
+  const CREATE_USER = 'users.create';
+}
+
+Пример 3 - Использование рефлексии:
+$reflection = new ReflectionClass(UserApi::class);
+$constants = $reflection->getReflectionConstants();
+
+foreach ($constants as $const) {
+  $attributes = $const->getAttributes(ApiEndpoint::class);
+  
+  foreach ($attributes as $attr) {
+    $endpoint = $attr->newInstance();
+    echo "{$endpoint->method} {$endpoint->path}\n";
+  }
+}
+
+Пример 4 - Кастомная валидация:
+#[Attribute]
+class Validation {
+  public function __construct(
+    public array $rules
+  ) {}
+}
+
+class FormFields {
+  #[Validation(['required' => true, 'max' => 50])]
+  const FIELD_NAME = 'name';
+  
+  #[Validation(['required' => true, 'email' => true])]
+  const FIELD_EMAIL = 'email';
+}
+
+// Использование для валидации:
+$refl = new ReflectionClass(FormFields::class);
+foreach ($refl->getReflectionConstants() as $const) {
+  $attrs = $const->getAttributes(Validation::class);
+  if (!empty($attrs)) {
+    $validation = $attrs[0]->newInstance();
+    // Применить правила валидации
+  }
+}
+
+ПРИМЕНЕНИЕ:
+- Маршрутизация API
+- Конфигурация и настройки
+- Кэширование
+- Логирование
+- Валидация данных
+
+ОСОБЕННОСТИ:
+- Работает с ReflectionClass::getReflectionConstants()
+- Поддерживает кастомные атрибуты
+- Встроенные атрибуты (Deprecated, etc.) тоже поддерживаются
+
+
+16. ИНСПЕКЦИЯ ОБРАБОТЧИКОВ ОШИБОК
+==================================
+
+ОПРЕДЕЛЕНИЕ:
+Новые встроенные функции для получения текущих обработчиков ошибок и исключений во время выполнения.
+
+НАЗНАЧЕНИЕ:
+Динамическая инспекция обработчиков для отладки, логирования и мониторинга.
+
+НОВЫЕ ФУНКЦИИ:
+
+1. get_error_handler()
+СИГНАТУРА: mixed get_error_handler(): callable|null
+ВОЗВРАЩАЕТ: Текущий обработчик ошибок или null если нет
+
+2. get_exception_handler()
+СИГНАТУРА: mixed get_exception_handler(): callable|null
+ВОЗВРАЩАЕТ: Текущий обработчик исключений или null если нет
+
+ПРИМЕРЫ:
+
+Пример 1 - Проверка текущих обработчиков:
+$errorHandler = get_error_handler();
+$exceptionHandler = get_exception_handler();
+
+if ($errorHandler !== null) {
+  echo "Error handler is set\n";
+} else {
+  echo "No error handler\n";
+}
+
+if ($exceptionHandler !== null) {
+  echo "Exception handler is set\n";
+} else {
+  echo "No exception handler\n";
+}
+
+Пример 2 - Сохранение и восстановление:
+$savedErrorHandler = get_error_handler();
+$savedExceptionHandler = get_exception_handler();
+
+// Установить временные обработчики
+set_error_handler(function($errno, $errstr) {
+  echo "Temporary error: $errstr\n";
+});
+
+set_exception_handler(function($exception) {
+  echo "Temporary exception: " . $exception->getMessage() . "\n";
+});
+
+// ... выполнить код ...
+
+// Восстановить оригинальные обработчики
+if ($savedErrorHandler !== null) {
+  set_error_handler($savedErrorHandler);
+} else {
+  restore_error_handler();
+}
+
+if ($savedExceptionHandler !== null) {
+  set_exception_handler($savedExceptionHandler);
+} else {
+  restore_exception_handler();
+}
+
+Пример 3 - Логирование в обработчик:
+class ErrorLogger {
+  private $originalHandler;
+  
+  public function enable(): void {
+    $this->originalHandler = get_error_handler();
+    
+    set_error_handler(function($errno, $errstr, $file, $line) {
+      // Логируем ошибку
+      error_log("[$errno] $errstr in $file:$line");
+      
+      // Вызываем оригинальный обработчик если он был
+      if ($this->originalHandler !== null) {
+        return call_user_func(
+          $this->originalHandler,
+          $errno, $errstr, $file, $line
+        );
+      }
+      
+      return false;
+    });
+  }
+  
+  public function disable(): void {
+    if ($this->originalHandler !== null) {
+      set_error_handler($this->originalHandler);
+    } else {
+      restore_error_handler();
+    }
+  }
+}
+
+Пример 4 - Мониторинг здоровья приложения:
+class HealthCheck {
+  public static function getHandlerStatus(): array {
+    return [
+      'has_error_handler' => get_error_handler() !== null,
+      'has_exception_handler' => get_exception_handler() !== null,
+      'error_reporting' => error_reporting(),
+      'display_errors' => ini_get('display_errors'),
+      'log_errors' => ini_get('log_errors')
+    ];
+  }
+}
+
+ПРИМЕНЕНИЕ:
+- Отладка сложных обработчиков
+- Мониторинг обработки ошибок
+- Логирование и аналитика
+- Восстановление состояния после исключений
+
+
+17. УПРАВЛЕНИЕ ПАМЯТЬЮ (max_memory_limit)
+==========================================
+
+ОПРЕДЕЛЕНИЕ:
+Новая INI директива `max_memory_limit` для установки системного максимума на значение памяти.
+
+НАЗНАЧЕНИЕ:
+Предотвращение превышения памяти на уровне системы, особенно важно для хостингов.
+
+СИНТАКСИС:
+max_memory_limit = 1G
+
+РАЗЛИЧИЕ МЕЖДУ ДИРЕКТИВАМИ:
+- memory_limit: Максимум памяти, который может использовать один скрипт
+- max_memory_limit: Максимум памяти для memory_limit (system-level cap)
+
+ПРИМЕРЫ:
+
+Пример 1 - Типичная конфигурация хостинга:
+php.ini:
+memory_limit = 256M        # По умолчанию для скриптов
+max_memory_limit = 512M    # Максимум, который скрипт может запросить
+
+// Скрипт может установить:
+ini_set('memory_limit', '300M'); // OK (300M < 512M)
+ini_set('memory_limit', '600M'); // ERROR (600M > 512M)
+
+Пример 2 - Multi-tenant приложение:
+php.ini:
+max_memory_limit = 2G   # Общий лимит для всех процессов
+
+// Каждому пользователю/клиенту свой лимит:
+ini_set('memory_limit', '256M');    // Tenant A
+ini_set('memory_limit', '512M');    // Tenant B (если важный)
+
+Пример 3 - Проверка лимитов:
+function getMemoryLimits(): array {
+  $current = ini_get('memory_limit');
+  $max = ini_get('max_memory_limit');
+  $used = memory_get_usage(true);
+  
+  return [
+    'current_limit' => $current,
+    'max_limit' => $max,
+    'memory_used' => $used,
+    'memory_remaining' => $this->parseBytes($max) - $used
+  ];
+}
+
+Пример 4 - Хостинг контроль панель:
+class HostingProvider {
+  public function setUserMemoryLimit(string $username, string $limit): bool {
+    $max = ini_get('max_memory_limit');
+    
+    if ($this->parseBytes($limit) <= $this->parseBytes($max)) {
+      $this->updateUserConfig($username, ['memory_limit' => $limit]);
+      return true;
+    }
+    
+    return false; // Превышает max_memory_limit
+  }
+}
+
+ЗНАЧЕНИЯ:
+-1      = Неограниченно
+0       = Неограниченно (PHP 8.5+)
+256M    = 256 мегабайт (формат с суффиксом)
+1G      = 1 гигабайт
+
+ПРИМЕНЕНИЕ:
+- Хостинг и облачные сервисы
+- Multi-tenant системы
+- Защита от DoS атак
+- Контроль ресурсов в контейнерах
+
+ОСОБЕННОСТИ:
+- Система уровень директива (INI_SYSTEM)
+- Нельзя изменить через ini_set()
+- Защищает весь сервер от перегрузки
+
+
+18. DEPRECATIONS И BREAKING CHANGES
+====================================
+
+ОСНОВНЫЕ DEPRECATED ФУНКЦИИ:
+
+1. mhash() и связанные функции
+СТАТУС: Deprecated с PHP 8.5
+ЗАМЕНА: Использовать hash() функции
+
+// Старый код:
+$hash = mhash(MHASH_SHA256, 'data');
+
+// Новый код:
+$hash = hash('sha256', 'data', true);
+
+2. mcrypt функции (были deprecated в PHP 7.1, удалены в PHP 7.2)
+ЗАМЕНА: OpenSSL
+
+ДРУГИЕ DEPRECATED:
+- Явно передавать null в параметры без nullable типа
+- Некоторые функции strpos с нулевыми параметрами
+
+BREAKING CHANGES:
+1. Более строгие типы параметров
+2. Удаление deprecated функций из предыдущих версий
+
+ИНСТРУМЕНТЫ МИГРАЦИИ:
+
+1. Rector - Автоматическое обновление кода
+Установка:
+composer require --dev rector/rector
+
+Использование:
+vendor/bin/rector process
+
+2. PHPStan - Анализ кода
+composer require --dev phpstan/phpstan
+
+Использование:
+vendor/bin/phpstan analyse src/
+
+3. Psalm - Статический анализатор
+composer require --dev vimeo/psalm
+
+Использование:
+vendor/bin/psalm
+
+ПРИМЕРЫ МИГРАЦИИ:
+
+Пример 1 - Мирация с Rector:
+$rectorConfig->rules([
+  ExplicitNullableParamTypeRector::class,
+  RoundingModeEnumRector::class,
+  // и другие...
+]);
+
+Пример 2 - Функция hash вместо mhash:
+// PHP 8.4
+$digest = mhash(MHASH_SHA256, $data);
+
+// PHP 8.5
+$digest = hash('sha256', $data, true);
+
+Пример 3 - Проверка deprecated функций:
+<?php
+// Поиск deprecated функций в коде
+$deprecatedFunctions = [
+  'mhash' => 'hash',
+  'mcrypt_encrypt' => 'openssl_encrypt',
+];
+
+foreach ($deprecatedFunctions as $old => $new) {
+  // Поиск в файлах...
+}
+
+
+19. ОПТИМИЗАЦИЯ ПРОИЗВОДИТЕЛЬНОСТИ
+====================================
+
+УЛУЧШЕНИЯ ПРОИЗВОДИТЕЛЬНОСТИ В PHP 8.5:
+
+1. JIT (Just-In-Time) Компилятор улучшения
+ОПИСАНИЕ: Усовершенствованная компиляция горячих участков кода
+РЕЗУЛЬТАТ: 5-15% прирост производительности
+
+КОНФИГУРАЦИЯ:
+// php.ini
+opcache.jit_buffer_size = 64M
+opcache.jit = tracing         # или: function, disable
+
+2. OPCache оптимизации
+ОПИСАНИЕ: Лучшее кэширование скомпилированного кода
+РЕЗУЛЬТАТ: Меньше операций на первый запуск
+
+3. Встроенные функции
+ОПИСАНИЕ: Оптимизация популярных встроенных функций
+ФУНКЦИИ: array_first, array_last, grapheme_* и т.д.
+РЕЗУЛЬТАТ: Быстрее чем пользовательские реализации
+
+4. Управление памятью
+ОПИСАНИЕ: Улучшенный сборщик мусора
+РЕЗУЛЬТАТ: Меньше затрат на gc(), лучше управление памятью
+
+БЕНЧМАРКИ:
+
+Benchmark 1 - Типичное веб-приложение:
+PHP 8.4: 100% (baseline)
+PHP 8.5: 87% (13% быстрее)
+
+Benchmark 2 - I/O интенсивные операции:
+PHP 8.4: 100%
+PHP 8.5: 92% (8% быстрее)
+
+Benchmark 3 - Обработка данных:
+PHP 8.4: 100%
+PHP 8.5: 85% (15% быстрее)
+
+РЕКОМЕНДАЦИИ ДЛЯ ОПТИМИЗАЦИИ:
+
+1. Включить OPCache
+extension = opcache.so
+opcache.enable = 1
+opcache.enable_cli = 1
+
+2. Настроить JIT
+opcache.jit_buffer_size = 128M
+opcache.jit = tracing
+
+3. Использовать новые функции
+- array_first/array_last вместо reset/end
+- grapheme_levenshtein для Unicode
+
+4. Профилирование
+Использовать tools:
+- Blackfire
+- New Relic
+- XDebug Profiler
+
+
+20. МИГРАЦИЯ И ИНСТРУМЕНТЫ
+=========================
+
+ИНСТРУМЕНТЫ АВТОМАТИЧЕСКОЙ МИГРАЦИИ:
+
+1. RECTOR
+Полнофункциональный инструмент для рефакторинга
+https://getrector.org/
+
+Установка:
+composer require --dev rector/rector
+
+Базовая конфигурация (rector.php):
+<?php
+
+use Rector\Config\RectorConfig;
+
+return RectorConfig::configure()
+  ->withPaths([
+    __DIR__ . '/src',
+    __DIR__ . '/app',
+  ])
+  ->withRules([
+    // PHP 8.4 -> 8.5 правила
+    ExplicitNullableParamTypeRector::class,
+  ]);
+
+Использование:
+vendor/bin/rector process              # Применить
+vendor/bin/rector process --dry-run    # Только показать
+
+2. PHPSTAN
+Статический анализ типов
+https://phpstan.org/
+
+Установка:
+composer require --dev phpstan/phpstan
+
+Использование:
+vendor/bin/phpstan analyse src/
+
+3. PSALM
+Статический анализатор от Vimeo
+https://psalm.dev/
+
+Установка:
+composer require --dev vimeo/psalm
+
+Использование:
+vendor/bin/psalm
+
+4. PHP-CS-FIXER
+Исправление стиля кода
+https://github.com/PHP-CS-Fixer/PHP-CS-Fixer
+
+ШАГИ МИГРАЦИИ:
+
+Шаг 1: Подготовка
+- Убедитесь, что весь код покрыт тестами
+- Скопируйте проект в отдельную ветку git
+- Обновитесь до PHP 8.4 (если не было)
+
+Шаг 2: Установка инструментов
+composer require --dev rector/rector phpstan/phpstan vimeo/psalm
+
+Шаг 3: Анализ
+vendor/bin/phpstan analyse src/
+vendor/bin/psalm
+
+Шаг 4: Автоматическое обновление
+vendor/bin/rector process --dry-run
+vendor/bin/rector process
+
+Шаг 5: Ручное тестирование
+- Запустить unit тесты
+- Запустить integration тесты
+- Проверить критичные функции
+
+Шаг 6: Развёртывание
+- Обновить хостинг до PHP 8.5
+- Развернуть обновленный код
+- Мониторить ошибки и производительность
+
+ЧЕКЛИСТ МИГРАЦИИ:
+
+[ ] Обновить PHP до 8.5
+[ ] Установить инструменты (Rector, PHPStan)
+[ ] Запустить статический анализ
+[ ] Исправить ошибки типов
+[ ] Обновить deprecated функции
+[ ] Запустить тесты
+[ ] Обновить CI/CD конфигурацию
+[ ] Развернуть в staging
+[ ] Провести тестирование
+[ ] Развернуть в production
+[ ] Мониторить логи ошибок
+
+ПРИМЕРЫ RECTOR КОНФИГОВ:
+
+config/rector.php для PHP 8.5:
+<?php
+
+use Rector\Config\RectorConfig;
+use Rector\Php85\Rector\...;
+
+return RectorConfig::configure()
+  ->withPhpVersion(Php85Version::class)
+  ->withPaths([__DIR__ . '/../src'])
+  ->withSkip([
+    __DIR__ . '/../src/Legacy',
+  ])
+  ->withRules([
+    // Новые правила для 8.5
+  ]);
+
+ЗАКЛЮЧЕНИЕ:
+============
+
+PHP 8.5 - это мощный и важный релиз, который улучшает удобство разработки, производительность и безопасность. Используйте встроенные инструменты для гладкой миграции и профилирования кода.
+
+Основные преимущества:
+- Оператор Pipe для чистого функционального кода
+- Новые встроенные функции (array_first, array_last, grapheme_levenshtein)
+- Лучшая поддержка Unicode и интернационализации
+- Улучшенная производительность (JIT, OPCache)
+- Лучшая отладка и диагностика (backtrace в фатальных ошибках, --ini=diff)
+- Современный API для URI парсинга
