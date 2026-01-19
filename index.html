@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <title>PHP 8.5</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="shower/themes/rndphp/styles/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/default.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script>hljs.highlightAll();</script>
+</head>
+<body class="shower list">
+
+<section class="slide preview">
+    <div class="lines"></div>
+    <div class="stripes"></div>
+    <h1>PHP 8.5</h1>
+    <p>Кочетов Даниил</p>
+</section>
+
+<section class="slide">
+    <h2>PHP 8.5 Timeline</h2>
+    <ul>
+        <li class="next">Релиз: 20 ноября 2025</li>
+        <li class="next">Активная поддержка: до 31 декабря 2027</li>
+        <li class="next">Безопасность: до 31 декабря 2029</li>
+    </ul>
+</section>
+
+<section class="slide">
+    <h2>Оператор Pipe (|>)</h2>
+    <pre><code class="language-php">
+                // Было
+                $result = number_format(round(sqrt(16)), 2);
+
+                // Стало
+                $result = 16
+                    |> sqrt()
+                    |> round()
+                    |> number_format();
+    </code></pre>
+</section>
+
+<section class="slide">
+    <h2>Встроенное расширение URI</h2>
+    <pre><code class="language-php">
+            $uri = Uri\parse_url(
+                'https://user:pass@example.com:8080/path?key=val'
+            );
+
+            $uri->scheme();   // "https"
+            $uri->host();     // "example.com"
+            $uri->port();     // 8080
+            $uri->path();     // "/path"
+    </code></pre>
+</section>
+
+<section class="slide">
+    <h2>Clone с изменением свойств</h2>
+    <pre><code class="language-php">
+            $user1 = new User('John', 'john@example.com', 30);
+
+            $user2 = clone $user1 with {
+                $age => 31
+            };
+
+            echo $user1->age; // 30
+            echo $user2->age; // 31
+    </code></pre>
+</section>
+
+<section class="slide">
+    <h2>Final Property Promotion</h2>
+    <pre><code class="language-php">
+            class Entity {
+                public function __construct(
+                    public final string $id,
+                    public final DateTime $createdAt
+                ) {}
+            }
+
+            class User extends Entity {
+                // public string $id; // Error!
+            }
+    </code></pre>
+</section>
+
+<section class="slide">
+    <h2>array_first() и array_last()</h2>
+    <pre><code class="language-php">
+            $numbers = [1, 2, 3, 4, 5, 6];
+
+            array_first($numbers);                        // 1
+            array_last($numbers);                         // 6
+            array_first($numbers, fn($n) => $n % 2 == 0); // 2
+            array_last($numbers, fn($n) => $n % 2 == 0);  // 6
+    </code></pre>
+</section>
+
+<section class="slide">
+    <h2>Замыкания в константных выражениях</h2>
+    <pre><code class="language-php">
+            #[Validate(
+                static fn($value): bool => strlen($value) > 3
+            )]
+            class User {
+                public string $name;
+            }
+
+            #[Validate(Service::validate(...))]
+            class DataValidator {}
+    </code></pre>
+</section>
+
+<section class="slide">
+    <h2>Атрибут #[NoDiscard]</h2>
+    <pre><code class="language-php">
+            #[NoDiscard('Check the result!')]
+            function validateData(array $data): bool {
+                return true;
+            }
+
+            $isValid = validateData($data); // OK
+            validateData($data);            // Warning
+    </code></pre>
+</section>
+
+<section class="slide">
+    <h2>Трассировка фатальных ошибок</h2>
+    <pre><code class="language-text">
+            Fatal error: TypeError in UserService.php:45
+            Stack trace:
+            #0 UserController.php(120): UserService->handle(123)
+            #1 AuthMiddleware.php(67): UserController->show()
+            #2 index.php(35): AuthMiddleware->process()
+            #3 {main}
+    </code></pre>
+</section>
+
+<section class="slide">
+    <h2>INI Option --diff</h2>
+    <pre><code class="language-bash">
+            $ php --ini=diff
+
+            Non-default INI settings:
+            display_errors: "1" -> "0"
+            memory_limit: "128M" -> "512M"
+            max_execution_time: "30" -> "300"
+    </code></pre>
+</section>
+
+<section class="slide">
+    <h2>PHP_BUILD_DATE</h2>
+    <pre><code class="language-php">
+            echo PHP_BUILD_DATE;
+            // 2025-11-20 14:30:45
+
+            echo json_encode([
+                'php_version' => PHP_VERSION,
+                'build_date' => PHP_BUILD_DATE,
+                'os' => PHP_OS
+            ]);
+    </code></pre>
+</section>
+
+<section class="slide">
+    <h2>curl_multi_get_handles()</h2>
+    <pre><code class="language-php">
+            $multi = curl_multi_init();
+            // ... добавить запросы ...
+
+            $handles = curl_multi_get_handles($multi);
+
+            foreach ($handles as $handle) {
+                $info = curl_getinfo($handle);
+                echo $info['url'] . ': ' . $info['http_code'];
+            }
+    </code></pre>
+</section>
+
+<section class="slide">
+    <h2>Улучшения Intl</h2>
+    <ul>
+        <li class="next"><strong>IntlListFormatter</strong> - списки по локали</li>
+        <li class="next"><strong>IntlChar::isRTL()</strong> - направление текста</li>
+        <li class="next"><strong>NumberFormatter</strong> - улучшения</li>
+    </ul>
+    <pre class="next"><code class="language-php">
+            $fmt = new IntlListFormatter('ru_RU');
+            echo $fmt->format(['яблоко', 'апельсин', 'банан']);
+            // яблоко, апельсин и банан
+    </code></pre>
+</section>
+
+<section class="slide">
+    <h2>grapheme_levenshtein()</h2>
+    <pre><code class="language-php">
+            // levenshtein() - считает байты (неправильно)
+            levenshtein("привет", "прибыт"); // 6
+
+            // grapheme_levenshtein() - считает графемы
+            grapheme_levenshtein("привет", "прибыт"); // 2
+
+            // Работает с эмодзи
+            grapheme_levenshtein("Hello 👨‍👩‍👧‍👦", "Hello 👨‍👩‍👧"); // 1
+    </code></pre>
+</section>
+
+<section class="slide">
+    <h2>Атрибуты на константах</h2>
+    <pre><code class="language-php">
+            class UserApi {
+                #[ApiEndpoint('/users', 'GET')]
+                const LIST_USERS = 'users.list';
+
+                #[ApiEndpoint('/users/{id}', 'GET')]
+                const GET_USER = 'users.get';
+
+                #[ApiEndpoint('/users', 'POST')]
+                const CREATE_USER = 'users.create';
+            }
+    </code></pre>
+</section>
+
+<section class="slide">
+    <h2>Инспекция обработчиков</h2>
+    <pre><code class="language-php">
+            $errorHandler = get_error_handler();
+            $exceptionHandler = get_exception_handler();
+
+            // Сохранить и восстановить
+            $saved = get_error_handler();
+            set_error_handler($myHandler);
+            // ... код ...
+            set_error_handler($saved);
+    </code></pre>
+</section>
+
+<section class="slide">
+    <h2>max_memory_limit</h2>
+    <pre><code class="language-ini">
+            ; php.ini
+            memory_limit = 256M
+            max_memory_limit = 512M
+    </code></pre>
+    <pre><code class="language-php">
+            ini_set('memory_limit', '300M'); // OK
+            ini_set('memory_limit', '600M'); // Error!
+    </code></pre>
+</section>
+
+<section class="slide">
+    <h2>Deprecations</h2>
+    <ul>
+        <li class="next"><strong>mhash()</strong> - использовать hash()</li>
+    </ul>
+    <pre class="next"><code class="language-php">
+            // Было
+            $hash = mhash(MHASH_SHA256, 'data');
+
+            // Стало
+            $hash = hash('sha256', 'data', true);
+    </code></pre>
+</section>
+
+<section class="slide">
+    <h2>Производительность</h2>
+    <ul>
+        <li class="next">JIT компилятор - улучшения</li>
+        <li class="next">OPCache - оптимизации</li>
+        <li class="next">Встроенные функции - быстрее</li>
+        <li class="next">Управление памятью - улучшено</li>
+    </ul>
+    <p class="next"><strong>Результат:</strong> 5-15% прирост</p>
+</section>
+
+<section class="slide">
+    <h2>Инструменты миграции</h2>
+    <ul>
+        <li class="next"><strong>Rector</strong> - автоматический рефакторинг</li>
+        <li class="next"><strong>PHPStan</strong> - статический анализ</li>
+        <li class="next"><strong>Psalm</strong> - проверка типов</li>
+    </ul>
+    <pre class="next"><code class="language-bash">
+            composer require --dev rector/rector
+            vendor/bin/rector process
+    </code></pre>
+</section>
+
+<section class="slide">
+    <h2 class="shout shrink">Вопросы?</h2>
+</section>
+
+<div class="progress"></div>
+
+<script src="shower/shower.min.js"></script>
+</body>
+</html>
