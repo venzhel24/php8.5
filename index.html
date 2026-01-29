@@ -19,11 +19,16 @@
 </section>
 
 <section class="slide">
+	<h2>PHP 8.5 не существует</h2>
+	<img src="pictures/php_exists.jpg" width="70%" class="place" style="padding-top: 40px;"/>
+</section>
+
+<section class="slide">
     <h2>PHP 8.5 Timeline</h2>
     <ul>
-        <li class="next">Релиз: 20 ноября 2025</li>
-        <li class="next">Активная поддержка: до 31 декабря 2027</li>
-        <li class="next">Безопасность: до 31 декабря 2029</li>
+        <li>Релиз: 20 ноября 2025</li>
+        <li>Активная поддержка: до 31 декабря 2027</li>
+        <li>Безопасность: до 31 декабря 2029</li>
     </ul>
 </section>
 
@@ -32,6 +37,11 @@
     <pre><code class="language-php">
 			// Было
 			$result = number_format(round(sqrt(16)), 2);
+
+			// Было (с промежуточными переменными)
+			$temp1 = sqrt(16);
+			$temp2 = round($temp1, 0);
+			$result = number_format($temp2, 2);
 			</code></pre>
 </section>
 
@@ -47,32 +57,36 @@
 </section>
 
 <section class="slide">
-    <h2>Встроенное расширение URI - Uri\Uri</h2>
-    <pre><code class="language-php">
-			$uri = new Uri\Uri(
-			    'https://user:pass@example.com:8080/path?key=val'
-			);
+	<h2>Оператор Pipe (|>)</h2>
+	<pre><code class="language-php" style="padding-top: 0">
+			$rawPrice = 1234.5678;
+			$roundedPrice = round($rawPrice, 2);           // 1234.57
+			$formattedPrice = number_format($roundedPrice, 2, ',', ' '); // "1 234,57"
+			$localizedPrice = strtoupper($formattedPrice); // "1 234,57"
+			$result = "Цена: {$localizedPrice} ₽";         // "Цена: 1 234,57 ₽"
 
-			$uri->scheme();   // "https"
-			$uri->host();     // "example.com"
-			$uri->port();     // 8080
-			$uri->path();     // "/path"
-			$uri->query();    // "key=val"
+			$result = 1234.5678
+				|> round(precision: 2)
+				|> number_format(decimals: 2, decimal_separator: ',', thousands_separator: ' ')
+				|> strtoupper()
+				|> fn($p) => "Цена: {$p} ₽";
 			</code></pre>
 </section>
 
 <section class="slide">
-    <h2>Встроенное расширение URI - Uri\parse_url</h2>
-    <pre><code class="language-php">
-			$uri = Uri\parse_url(
-			    'https://user:pass@example.com:8080/path?key=val'
+	<h2>Встроенное расширение URI - Uri\Uri</h2>
+	<pre><code class="language-php" style="padding-top: 0; font-size: 16px">
+			$uri = new Uri\Rfc3986\Uri( // или Uri\WhatWg\Url
+				'https://user:pass@example.com:8080/path?key=val'
 			);
 
-			$uri->scheme();   // "https"
-			$uri->host();     // "example.com"
-			$uri->port();     // 8080
-			$uri->path();     // "/path"
-			$uri->query();    // "key=val"
+			$uri->getScheme();   // "https"
+			$uri->getHost();     // "example.com"
+			$uri->getPort();     // 8080
+			$uri->getPath();     // "/path"
+			$uri->getQuery();    // "key=val"
+
+		https://wiki.php.net/rfc/url_parsing_api
 			</code></pre>
 </section>
 
@@ -93,7 +107,7 @@
 <section class="slide">
     <h2>Uri + Clone with</h2>
     <pre><code class="language-php">
-			$originalUri = new Uri\Uri('https://example.com:8080/path?key=val');
+			$originalUri = new Uri\Rfc3986\Uri('https://example.com:8080/path?key=val');
 
 			$modifiedUri = clone $originalUri with {
 			    $host => 'newdomain.com',
@@ -135,17 +149,60 @@
 </section>
 
 <section class="slide">
-    <h2>Замыкания в константных выражениях</h2>
-    <pre><code class="language-php">
-			#[Validate(
-			    static fn($value): bool => strlen($value) > 3
-			)]
-			class User {
-			    public string $name;
+    <h2>Замыкания: Дефолтный параметр функции</h2>
+    <pre><code class="language-php" style="padding-top: 0">
+			// До PHP 8.5
+			function processData(array $data, callable $filter = null) {
+			    $filter ??= fn($item) => !empty($item);
+			    return array_filter($data, $filter);
 			}
 
-			#[Validate(Service::validate(...))]
-			class DataValidator {}
+			processData([0, 1, 2, '', 'foo']); // [1, 2, 'foo']
+			</code></pre>
+</section>
+
+<section class="slide">
+    <h2>Замыкания: Дефолтный параметр функции</h2>
+    <pre><code class="language-php" style="padding-top: 0">
+			// PHP 8.5
+			function processData(array $data, callable $filter = fn($item) => !empty($item)) {
+			    return array_filter($data, $filter);
+			}
+
+			processData([0, 1, 2, '', 'foo']); // [1, 2, 'foo']
+			</code></pre>
+</section>
+
+<section class="slide">
+    <h2>Замыкания: Константа</h2>
+    <pre><code class="language-php" style="padding-top: 0">
+			const VALIDATE_EMAIL = fn($value) => filter_var($value, FILTER_VALIDATE_EMAIL);
+
+			if (VALIDATE_EMAIL('test@example.com')) {
+			    echo 'OK';
+			}
+
+			// Можно передать в array_filter
+			$emails = ['bad', 'good@test.com', 'ugly'];
+			$validEmails = array_filter($emails, VALIDATE_EMAIL);
+			</code></pre>
+</section>
+
+<section class="slide">
+    <h2>Замыкания: Атрибуты</h2>
+    <pre><code class="language-php" style="padding-top: 0">
+			const MIN_LENGTH_3 = fn($value) => strlen($value) >= 3;
+			const IS_EMAIL = fn($value) => filter_var($value, FILTER_VALIDATE_EMAIL);
+			const IS_POSITIVE = fn($value) => $value > 0;
+
+			#[Validate(IS_EMAIL)]
+			class User {
+			    #[Validate(MIN_LENGTH_3)]
+			    public string $name;
+
+			    #[Validate(IS_POSITIVE)]
+			    public int $age;
+			}
 			</code></pre>
 </section>
 
@@ -200,32 +257,18 @@
 			</code></pre>
 </section>
 
-<section class="slide">
-    <h2>curl_multi_get_handles()</h2>
-    <pre><code class="language-php">
-			$multi = curl_multi_init();
-			// ... добавить запросы ...
-
-			$handles = curl_multi_get_handles($multi);
-
-			foreach ($handles as $handle) {
-			    $info = curl_getinfo($handle);
-			    echo $info['url'] . ': ' . $info['http_code'];
-			}
-			</code></pre>
-</section>
 
 <section class="slide">
     <h2>Улучшения Intl</h2>
     <ul>
-        <li class="next"><strong>IntlListFormatter</strong> - списки по локали</li>
-        <li class="next"><strong>IntlChar::isRTL()</strong> - направление текста</li>
-        <li class="next"><strong>NumberFormatter</strong> - улучшения</li>
+        <li><strong>IntlListFormatter</strong> - списки по локали</li>
+        <li><strong>IntlChar::isRTL()</strong> - направление текста</li>
+        <li><strong>Locale::isRightToLeft()</strong> - направление текста</li>
+        <li><strong>NumberFormatter</strong> - улучшения</li>
     </ul>
-    <pre class="next"><code class="language-php">
+    <pre><code class="language-php">
 			$fmt = new IntlListFormatter('ru_RU');
-			echo $fmt->format(['яблоко', 'апельсин', 'банан']);
-			// яблоко, апельсин и банан
+			echo $fmt->format(['яблоко', 'апельсин', 'банан']); // яблоко, апельсин и банан
 			</code></pre>
 </section>
 
