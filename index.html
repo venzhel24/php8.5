@@ -57,23 +57,6 @@
 </section>
 
 <section class="slide">
-	<h2>Оператор Pipe (|>)</h2>
-	<pre><code class="language-php" style="padding-top: 0">
-			$rawPrice = 1234.5678;
-			$roundedPrice = round($rawPrice, 2);           // 1234.57
-			$formattedPrice = number_format($roundedPrice, 2, ',', ' '); // "1 234,57"
-			$localizedPrice = strtoupper($formattedPrice); // "1 234,57"
-			$result = "Цена: {$localizedPrice} ₽";         // "Цена: 1 234,57 ₽"
-
-			$result = 1234.5678
-				|> round(precision: 2)
-				|> number_format(decimals: 2, decimal_separator: ',', thousands_separator: ' ')
-				|> strtoupper()
-				|> fn($p) => "Цена: {$p} ₽";
-			</code></pre>
-</section>
-
-<section class="slide">
 	<h2>Встроенное расширение URI - Uri\Uri</h2>
 	<pre><code class="language-php" style="padding-top: 0; font-size: 16px">
 			$uri = new Uri\Rfc3986\Uri( // или Uri\WhatWg\Url
